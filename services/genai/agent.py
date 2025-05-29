@@ -42,6 +42,7 @@ def is_continuing_query(session_id: str, intent: str, query: str) -> bool:
         )
         response = llm.invoke(final_prompt)
         final_response = response.content.strip().lower()
+        print(f"FINAL : {final_response}")
 
         conn = get_db_connection(MYSQL_QUERY_CONFIG)
         if not conn:
@@ -52,6 +53,7 @@ def is_continuing_query(session_id: str, intent: str, query: str) -> bool:
             if final_response == "false":
                 query = "UPDATE chat_sessions SET last_order_id = NULL WHERE id = %s;"
                 result = execute_query(conn, query, (session_id,), fetch=False)
+                print(f"RES : {result}")
                 conn.close()
                 logger.info(f"last order is {session_id} removed")
 
@@ -96,14 +98,14 @@ def chat_with_csv(session_id: str, query: str) -> Dict[str, Any]:
         if not response_text:
             response_text = "I don't have enough information to answer that. Please provide more details or ask about something else."
         
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "csv", query)
         return {"response": response_text}
     except Exception as e:
         logger.error(f"CSV query error: {e}")
         response = "An error occurred while processing your FAQ query. Please try again."
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         return {"response": response}
 
@@ -116,7 +118,7 @@ def chat_with_mysql(session_id: str, query: str, chat_history: Optional[List] = 
 
     if not order_id:
         response = "Could you please share your valid order ID, so I can check the details for you?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         update_session_context(session_id, "mysql", query, waiting_for="order_id")
         return {"response": response}
@@ -178,7 +180,7 @@ def chat_with_mysql(session_id: str, query: str, chat_history: Optional[List] = 
         sql_query = get_sql(db.get_table_info(), formatted_history, query, order_id)
         
         if sql_query.startswith("Please provide"):
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', sql_query)
             update_session_context(session_id, "mysql", query, order_id)
             return {"response": sql_query}
@@ -188,13 +190,13 @@ def chat_with_mysql(session_id: str, query: str, chat_history: Optional[List] = 
         except Exception as e:
             logger.error(f"SQL execution error: {e}")
             response = "Sorry, I encountered an error. Please try again or refine your question."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             return {"response": response, "sql_query": sql_query, "sql_response": str(e)}
         
         natural_language_response = get_response(db.get_table_info(), formatted_history, query, sql_query, sql_response)
         
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', natural_language_response)
         update_session_context(session_id, "mysql", query, order_id)
         
@@ -206,7 +208,7 @@ def chat_with_mysql(session_id: str, query: str, chat_history: Optional[List] = 
     except Exception as e:
         logger.error(f"Unexpected error in MySQL query: {e}")
         response = "An unexpected error occurred. Please try again or contact support."
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         return {"response": response}
 
@@ -241,7 +243,7 @@ def handle_reschedule_delivery(session_id: str, query: str, chat_history: Option
     
     if not order_id:
         response = "Could you please share your valid order ID, so I can check the details for you?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         update_session_context(session_id, "reschedule_delivery", query, waiting_for="order_id")
         return {"response": response}
@@ -257,7 +259,7 @@ def handle_reschedule_delivery(session_id: str, query: str, chat_history: Option
         
         if not result:
             response = f"Order {order_id} not found. Please verify the order ID and try again."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             return {"response": response}
         
@@ -265,7 +267,7 @@ def handle_reschedule_delivery(session_id: str, query: str, chat_history: Option
         
         if not order_details['reschedule_eligible']:
             response = f"Order {order_id} can no longer be rescheduled.\n If you need further assistance, please contact our support team."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             update_session_context(session_id, "reschedule_delivery", query, order_id)
             return {"response": response}
@@ -275,7 +277,7 @@ def handle_reschedule_delivery(session_id: str, query: str, chat_history: Option
         if not date_str or date_str == '""':
             current_date = order_details['expected_delivery']
             response = f"Please provide the new delivery date for order {order_id} (current date: {current_date})."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             update_session_context(session_id, "reschedule_delivery", query, order_id, waiting_for="date")
             return {"response": response}
@@ -284,14 +286,14 @@ def handle_reschedule_delivery(session_id: str, query: str, chat_history: Option
             new_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             if new_date <= datetime.now().date():
                 response = "I’m sorry, but rescheduling is only possible for future dates. Could you please provide a valid future date?"
-                save_chat_message(session_id, 'user', query)
+                # save_chat_message(session_id, 'user', query)
                 save_chat_message(session_id, 'assistant', response)
                 update_session_context(session_id, "reschedule_delivery", query, order_id, waiting_for="date")
                 return {"response": response}
             
             if (new_date - datetime.now().date()).days > 30:
                 response = "To ensure timely processing, rescheduling is limited to dates within the next 30 days. Please choose a date within that range."
-                save_chat_message(session_id, 'user', query)
+                # save_chat_message(session_id, 'user', query)
                 save_chat_message(session_id, 'assistant', response)
                 update_session_context(session_id, "reschedule_delivery", query, order_id, waiting_for="date")
                 return {"response": response}
@@ -300,20 +302,20 @@ def handle_reschedule_delivery(session_id: str, query: str, chat_history: Option
             execute_query(conn, update_query, (new_date, order_id), fetch=False)
             
             response = f"The delivery for Order {order_id} has been rescheduled to {new_date}. \n Is there anything else I can help you with?"
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             update_session_context(session_id, "reschedule_delivery", query, order_id, waiting_for=None)
             return {"response": response}
         except ValueError:
             response = f"Please provide the new delivery date for order {order_id} in a valid format (e.g., '2025-05-20' or 'tomorrow')."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             update_session_context(session_id, "reschedule_delivery", query, order_id, waiting_for="date")
             return {"response": response}
     except Exception as e:
         logger.error(f"Error in reschedule delivery: {e}")
         response = "An error occurred while processing your request. Please try again or contact support."
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         update_session_context(session_id, "reschedule_delivery", query, order_id)
         return {"response": response}
@@ -345,7 +347,7 @@ def handle_address_change(session_id: str, query: str, chat_history: Optional[Li
     
     if not order_id:
         response = "Could you please share your valid order ID, so I can check the details for you?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         update_session_context(session_id, "address_change", query, waiting_for="order_id")
         return {"response": response}
@@ -361,7 +363,7 @@ def handle_address_change(session_id: str, query: str, chat_history: Optional[Li
         
         if not result:
             response = f"Order {order_id} not found. Please verify the order ID and try again."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             return {"response": response}
         
@@ -369,7 +371,7 @@ def handle_address_change(session_id: str, query: str, chat_history: Optional[Li
         
         if not order_details['address_change_eligible']:
             response = f"Order {order_id} isn’t eligible for an address change at this stage.\n If you need further assistance, please contact our support team."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             update_session_context(session_id, "address_change", query, order_id)
             return {"response": response}
@@ -379,7 +381,7 @@ def handle_address_change(session_id: str, query: str, chat_history: Optional[Li
         if not new_address:
             current_address = order_details['delivery_address']
             response = f"Please share the new delivery address for Order {order_id}. The current address on record is: {current_address}."
-            save_chat_message(session_id, 'user', query)
+            # save_chat_message(session_id, 'user', query)
             save_chat_message(session_id, 'assistant', response)
             update_session_context(session_id, "address_change", query, order_id, waiting_for="address")
             return {"response": response}
@@ -388,14 +390,14 @@ def handle_address_change(session_id: str, query: str, chat_history: Optional[Li
         execute_query(conn, update_query, (new_address, order_id), fetch=False)
         
         response = f"The address for {order_id} has been updated to:\n  {new_address}. \n Is there anything else I can help you with?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         update_session_context(session_id, "address_change", query, order_id, waiting_for=None)
         return {"response": response}
     except Exception as e:
         logger.error(f"Error in address change: {e}")
         response = "An error occurred while processing your request. Please try again or contact support."
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response)
         update_session_context(session_id, "address_change", query, order_id)
         return {"response": response}
@@ -433,7 +435,7 @@ I can help you with the following:\n
 Just tell me what you’d like help with!
 """
     
-    save_chat_message(session_id, 'user', query)
+    # save_chat_message(session_id, 'user', query)
     save_chat_message(session_id, 'assistant', response)
     update_session_context(session_id, "general", query)
     return {"response": response}
@@ -451,7 +453,7 @@ I can help you with the following:\n
 Just tell me what you’d like help with!
 """
     
-    save_chat_message(session_id, 'user', query)
+    # save_chat_message(session_id, 'user', query)
     save_chat_message(session_id, 'assistant', response)
     update_session_context(session_id, "capabilities", query)
     return {"response": response}
@@ -466,14 +468,14 @@ def handle_small_talks(session_id: str, query: str) -> Dict[str, str]:
         if not response_text:
             response_text = "Nice to chat! How can I assist with your logistics needs?"
 
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "small_talks", query)
         return {"response": response_text}
     except Exception as e:
         logger.error(f"Error handling small talk query: {e}")
         response_text = "Nice to chat! How can I assist with your logistics needs?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "small_talks", query)
         return {"response": response_text}
@@ -482,14 +484,14 @@ def handle_frustration(session_id: str, query: str) -> Dict[str, str]:
     """Handle frustration queries."""
     try:
         response_text = "I’m really sorry you're facing this. I completely understand how frustrating it can be.\nLet me help by creating a support ticket so our team can review and get back to you as soon as possible."
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "frustration", query)
         return {"response": response_text}
     except Exception as e:
         logger.error(f"Error handling frustration query: {e}")
         response_text = "Nice to chat! How can I assist with your logistics needs?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "frustration", query)
         return {"response": response_text}
@@ -498,14 +500,14 @@ def handle_vip(session_id: str, query: str) -> Dict[str, str]:
     """Handle VIP queries."""
     try:
         response_text = "Thank you for your interest in shipping with us.\nI’ve flagged this as a priority inquiry. Our sales team will connect with you shortly to help you explore the best options."
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "vip", query)
         return {"response": response_text}
     except Exception as e:
         logger.error(f"Error handling vip query: {e}")
         response_text = "Nice to chat! How can I assist with your logistics needs?"
-        save_chat_message(session_id, 'user', query)
+        # save_chat_message(session_id, 'user', query)
         save_chat_message(session_id, 'assistant', response_text)
         update_session_context(session_id, "vip", query)
         return {"response": response_text}
